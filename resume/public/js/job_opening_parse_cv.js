@@ -15,8 +15,10 @@ frappe.ui.form.on('Job Opening', {
 });
 
 function update_upload_cv_button(frm) {
-    // Clear any existing custom buttons to avoid duplication
-    frm.clear_custom_buttons();
+    // Remove only our Parse CV buttons — do not use clear_custom_buttons() or other apps'
+    // buttons (e.g. qbs_ats "Assign To") are removed as well.
+    frm.remove_custom_button(__('Parse CV'));
+    frm.remove_custom_button(__('Parse CV and Score'));
 
     // Set default values (These will be used for "Franchise" users regardless of vertical)
     let button_label = "Parse CV";
