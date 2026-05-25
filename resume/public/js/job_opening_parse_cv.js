@@ -33,18 +33,39 @@ function update_upload_cv_button(frm) {
 
     // Add the dynamic custom button
     frm.add_custom_button(__(button_label), () => {
+        if (frm.is_new()) {
+            frappe.msgprint(__("Please save the Job Opening before uploading CVs."));
+            return;
+        }
+
         new frappe.ui.FileUploader({
             allow_multiple: true,
+            method: "resume.resume.upload.upload_cv_for_parsing",
+            doctype: null,
+            docname: null,
+            fieldname: null,
+            folder: "Home",
+            make_attachments_public: false,
             restrictions: {
                 allowed_file_types: ['.pdf', '.docx', '.txt', '.jpg', '.jpeg', '.png']
             },
-            on_success(file) {
+            on_success(file_doc) {
+                if (!file_doc || !file_doc.file_url) {
+                    frappe.msgprint({
+                        title: __("Upload failed"),
+                        indicator: "red",
+                        message: __("Could not upload the file. Please try again."),
+                    });
+                    return;
+                }
+                const file_url = file_doc.file_url;
+
                 if (action_type === "Parse") {
                     // Scenario: Direct parsing (No scoring/justification)
                     frappe.call({
                         method: "resume.resume.upload.parse_cv_and_create_applicant_direct",
                         args: {
-                            file_url: file.file_url,
+                            file_url: file_url,
                             job_id: frm.doc.name,
                             designation: frm.doc.designation
                         },
@@ -52,11 +73,14 @@ function update_upload_cv_button(frm) {
                         freeze_message: __("Parsing CV..."),
                         callback(r) {
                             if (!r.exc && r.message) {
-                                frappe.show_alert({
-                                    message: __("Applicant created: {0}").format(r.message.applicant_name),
-                                    indicator: 'green'
-                                });
-                                frm.reload_doc();
+                                const count = r.message.success_count || 0;
+                                if (count) {
+                                    frappe.show_alert({
+                                        message: __("{0} applicant(s) created", [count]),
+                                        indicator: 'green'
+                                    });
+                                    frm.reload_doc();
+                                }
                             }
                         }
                     });
@@ -65,7 +89,7 @@ function update_upload_cv_button(frm) {
                     frappe.call({
                         method: "resume.resume.upload.save_cv_to_pdf_upload",
                         args: {
-                            file_url: file.file_url,
+                            file_url: file_url,
                             job_id: frm.doc.name,
                             designation: frm.doc.designation,
                             action: action_type

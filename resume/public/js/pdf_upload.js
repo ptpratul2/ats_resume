@@ -13,6 +13,12 @@ frappe.ui.form.on('PDF Upload', {
 
             new frappe.ui.FileUploader({
                 allow_multiple: true,
+                method: "resume.resume.upload.upload_cv_for_parsing",
+                doctype: null,
+                docname: null,
+                fieldname: null,
+                folder: "Home",
+                make_attachments_public: false,
                 restrictions: {
                     allowed_file_types: ['.pdf', '.docx', '.txt', '.jpg', '.jpeg', '.png']
                 },

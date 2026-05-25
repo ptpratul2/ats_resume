@@ -207,7 +207,7 @@ app_license = "mit"
 
 # Request Events
 # ----------------
-# before_request = ["resume.utils.before_request"]
+before_request = ["resume.resume.upload.clear_invalid_upload_attachment_on_request"]
 # after_request = ["resume.utils.after_request"]
 
 # Job Events
@@ -255,6 +255,16 @@ app_license = "mit"
 
 
 
+
+doc_events = {
+    "File": {
+        "before_validate": "resume.resume.upload.sanitize_cv_file_attachment",
+    }
+}
+
+override_whitelisted_methods = {
+    "frappe.handler.upload_file": "resume.resume.upload.upload_file_safe",
+}
 
 doctype_js = {
     "PDF Upload": "public/js/pdf_upload.js",

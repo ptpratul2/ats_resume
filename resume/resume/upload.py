@@ -50,6 +50,150 @@ from resume.resume.doctype.pdf_upload.pdf_upload import (
     _parse_pdf_threadsafe,
 )
 
+
+def _is_valid_attachment_name(name):
+    """Frappe rejects falsy ints (e.g. 0) and non str/int types."""
+    if name is None or name == "" or name is False:
+        return False
+    if isinstance(name, bool):
+        return False
+    if isinstance(name, int) and name == 0:
+        return False
+    if isinstance(name, float) and name == 0:
+        return False
+    if isinstance(name, str):
+        stripped = name.strip()
+        if not stripped or stripped in ("0", "undefined", "null", "None"):
+            return False
+        return True
+    return isinstance(name, int)
+
+
+def _clear_invalid_upload_attachment_fields():
+    """Remove bad doctype/docname from upload_file requests (drag-drop, cached JS, etc.)."""
+    doctype = frappe.form_dict.get("doctype")
+    docname = frappe.form_dict.get("docname")
+    if doctype and not _is_valid_attachment_name(docname):
+        for key in ("doctype", "docname", "fieldname"):
+            frappe.form_dict.pop(key, None)
+
+
+def clear_invalid_upload_attachment_on_request():
+    if frappe.form_dict.get("cmd") == "upload_file":
+        _clear_invalid_upload_attachment_fields()
+
+
+def sanitize_cv_file_attachment(doc, method=None):
+    """Drop invalid attached_to references (e.g. docname 0 from bad Job Opening route)."""
+    if not doc.attached_to_doctype:
+        return
+
+    if not _is_valid_attachment_name(doc.attached_to_name):
+        doc.attached_to_doctype = None
+        doc.attached_to_name = None
+        doc.attached_to_field = None
+
+
+@frappe.whitelist(allow_guest=True)
+def upload_file_safe():
+    """Wrap frappe.handler.upload_file and strip invalid attachment targets."""
+    if frappe.form_dict.get("method") == "resume.resume.upload.upload_cv_for_parsing":
+        for key in ("doctype", "docname", "fieldname", "method"):
+            frappe.form_dict.pop(key, None)
+        # Call directly — frappe.handler.upload_file reads the stream before calling method()
+        return upload_cv_for_parsing()
+    _clear_invalid_upload_attachment_fields()
+    from frappe.handler import upload_file
+
+    return upload_file()
+
+
+@frappe.whitelist(allow_guest=True)
+def upload_cv_for_parsing():
+    """Upload a CV to Home without attaching to Job Opening."""
+    from mimetypes import guess_type
+
+    from frappe.handler import ALLOWED_MIMETYPES
+    from frappe.utils import cint
+    from frappe.utils.image import optimize_image
+
+    ignore_permissions = False
+    user = None
+    if frappe.session.user == "Guest":
+        if not frappe.get_system_settings("allow_guests_to_upload_files"):
+            raise frappe.PermissionError
+        ignore_permissions = True
+    else:
+        user = frappe.get_doc("User", frappe.session.user)
+
+    files = frappe.request.files
+    is_private = cint(frappe.form_dict.get("is_private", 1))
+    folder = frappe.form_dict.get("folder") or "Home"
+    file_url = frappe.form_dict.get("file_url")
+    filename = frappe.form_dict.get("file_name")
+    optimize = frappe.form_dict.get("optimize")
+    content = getattr(frappe.local, "uploaded_file", None)
+
+    if library_file := frappe.form_dict.get("library_file_name"):
+        frappe.has_permission("File", doc=library_file, throw=True)
+        lib = frappe.get_value(
+            "File",
+            library_file,
+            ["is_private", "file_url", "file_name"],
+            as_dict=True,
+        )
+        is_private = lib.is_private
+        file_url = lib.file_url
+        filename = lib.file_name
+
+    if not content and files and "file" in files:
+        upload = files["file"]
+        content = upload.stream.read()
+        filename = filename or upload.filename
+    elif not filename:
+        filename = getattr(frappe.local, "uploaded_filename", None)
+
+    if not content and not file_url and not frappe.form_dict.get("library_file_name"):
+        frappe.throw(_("Please attach a file."))
+
+    if content and files and "file" in files:
+        upload = files["file"]
+        filename = filename or upload.filename
+        content_type = guess_type(filename)[0]
+        if optimize and content_type and content_type.startswith("image/"):
+            args = {"content": content, "content_type": content_type}
+            if frappe.form_dict.get("max_width"):
+                args["max_width"] = int(frappe.form_dict.max_width)
+            if frappe.form_dict.get("max_height"):
+                args["max_height"] = int(frappe.form_dict.max_height)
+            content = optimize_image(**args)
+
+    if content is not None and (
+        frappe.session.user == "Guest" or (user and not user.has_desk_access())
+    ):
+        filetype = guess_type(filename)[0]
+        if filetype not in ALLOWED_MIMETYPES:
+            frappe.throw(
+                _("You can only upload JPG, PNG, PDF, TXT, CSV or Microsoft documents.")
+            )
+
+    file_doc = frappe.get_doc(
+        {
+            "doctype": "File",
+            "folder": folder,
+            "file_name": filename,
+            "file_url": file_url,
+            "is_private": is_private,
+            "content": content,
+        }
+    )
+    file_doc.attached_to_doctype = None
+    file_doc.attached_to_name = None
+    file_doc.attached_to_field = None
+    sanitize_cv_file_attachment(file_doc)
+    return file_doc.save(ignore_permissions=ignore_permissions)
+
+
 @frappe.whitelist()
 def parse_cv_and_create_applicant_direct(file_url=None, file_urls=None, job_id=None, designation=None):
 
