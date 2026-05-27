@@ -2,6 +2,7 @@ import os
 import frappe
 import json
 from frappe import _
+from datetime import datetime 
 
 
 @frappe.whitelist()
@@ -227,6 +228,8 @@ def parse_cv_and_create_applicant_direct(file_url=None, file_urls=None, job_id=N
     duplicate_emails = []
     success_count = 0
     error_log = []
+    
+    today_date = datetime.now().strftime("%B %Y")
 
     # File handling
     if isinstance(file_urls, str):
@@ -277,6 +280,7 @@ def parse_cv_and_create_applicant_direct(file_url=None, file_urls=None, job_id=N
 
             with open(prompt_path, "r") as f:
                 prompt_template = f.read()
+            prompt_template = prompt_template.replace("{{CURRENT_DATE}}", today_date)    
 
             ext = os.path.splitext(file_path)[1].lower()
             job_desc = frappe.db.get_value("Job Opening", job_id, "description")
@@ -315,6 +319,8 @@ def parse_cv_and_create_applicant_direct(file_url=None, file_urls=None, job_id=N
                 "status": default_status, # Ab yahan dynamic status aayega
                 "job_title": job_id,
                 "designation": designation,
+                "custom__current_company": applicant_data.get("custom__current_company", ""),
+                "custom__total_experience": applicant_data.get("custom__total_experience", ""),
             })
 
             applicant.insert(ignore_permissions=True)
