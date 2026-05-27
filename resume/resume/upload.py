@@ -319,8 +319,8 @@ def parse_cv_and_create_applicant_direct(file_url=None, file_urls=None, job_id=N
                 "status": default_status, # Ab yahan dynamic status aayega
                 "job_title": job_id,
                 "designation": designation,
-                "custom__current_company": applicant_data.get("custom__current_company", ""),
-                "custom__total_experience": applicant_data.get("custom__total_experience", ""),
+                "custom__current_company": applicant_data.get("custom__current_company"),
+                "custom__total_experience": applicant_data.get("custom__total_experience")
             })
 
             applicant.insert(ignore_permissions=True)
