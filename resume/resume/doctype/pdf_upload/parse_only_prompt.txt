@@ -1,23 +1,35 @@
 Extract applicant information from the resume text. Return ONLY valid JSON.
 
 Job Title: {{JOB_TITLE}}
+Current Date: {{CURRENT_DATE}}
 
 Resume Text:
 ----------------------
 {{RESUME_TEXT}}
 ----------------------
 
-Output ONLY valid JSON in this format (no scoring, no fit assessment):
+Output ONLY valid JSON in this format:
 
 {
   "applicant_name": "",
   "email_id": "",
   "phone_number": "",
-  "custom_phone_number_2": ""
+  "custom_phone_number_2": "",
+  "custom__current_company": "",
+  "custom__total_experience": ""
 }
 
 Rules:
-1. Correct OCR errors.
-2. Normalize phone numbers.
-3. Infer missing fields when possible.
-4. Return ONLY JSON, nothing else.
+1. **Total Experience Calculation**: 
+   - Identify the 'Start Date' of the very first professional job.
+   - **Case A (Current Employee)**: If the latest job is marked as "Present", "Current", "Till Date", or "Now", calculate the total duration from the first job's Start Date until the "Current Date" ({{CURRENT_DATE}}) provided above.
+   - **Case B (Left Job)**: If the latest job has a specific End Date (e.g., "Jan 2024"), calculate the duration from the first job's Start Date until that specific End Date only. Do not count beyond the last working day.
+   - Return the total experience in years and months (e.g., "5 years 2 months").
+
+2. **Current Company**: Identify the company where the candidate is currently working (Present). If they have left their last job, leave it empty or null.
+
+3. **Normalization**: 
+   - Correct OCR errors.
+   - Format phone numbers to E.164 (e.g., +91XXXXXXXXXX).
+
+4. **Strictness**: Return ONLY valid JSON. No conversational text.

@@ -1,6 +1,8 @@
-You are a highly skilled AI agent trained to compare and analyze text from resumes against job descriptions. Your primary goal is to assess whether the candidate is a good fit for the role based on the given inputs.
+Extract applicant information and analyze fit for the role. Return ONLY valid JSON.
 
 Job Title: {{JOB_TITLE}}
+Current Date: {{CURRENT_DATE}}
+
 Job Description:
 ----------------------
 {{JOB_DESCRIPTION}}
@@ -11,6 +13,7 @@ Resume Text:
 {{RESUME_TEXT}}
 ----------------------
 
+Your Task:
 Your task is to:
 1. **Analyze Match**: Compare the candidate's resume text against the job description and assess the alignment of:
    - Required skills
@@ -26,8 +29,17 @@ Your task is to:
 
 3. **Provide Justification**: Include a brief explanation of why the candidate is or isn’t a good fit, highlighting strengths, gaps, or missing criteria.
 
-Output ONLY valid JSON in the following format:
 
+4. **Total Experience Calculation**: 
+   - Identify the 'Start Date' of the very first professional job/internship.
+   - **Case A**: If the latest job is "Present", "Current", or "Till Date", calculate duration from the first job's Start Date until {{CURRENT_DATE}}.
+   - **Case B**: If the latest job has a specific End Date, calculate duration until that specific date only.
+   - Result format: "X years Y months".
+5. **Current Company**: Identify the latest company marked as "Present". If the candidate has left their last job, return null or empty.
+6. **Analyze Match**: Compare resume against Job Description. Assign a score (0-100) and fit_level (Strong, Moderate, Weak).
+7. **Rating**: Calculate applicant_rating as (Score / 100). (e.g., 80 score = 0.8 rating).
+
+Output ONLY valid JSON in this format:
 {
   "applicant_name": "",
   "email_id": "",
@@ -41,18 +53,15 @@ Output ONLY valid JSON in the following format:
   "certifications": [],
   "linkedin_url": "",
   "github_url": "",
-  "parsed_confidence_score": 0.0,
-  "fit_level": "Strong Fit | Moderate Fit | Weak Fit",
+  "fit_level": "",
   "score": 0,
-  "score": 0,
-  "applicant_rating": 0,
-  "justification_by_ai": ""
+  "applicant_rating": 0.0,
+  "justification_by_ai": "",
+  "custom__current_company": "",
+  "custom__total_experience": ""
 }
 
 Rules:
-1. Correct OCR errors.
-2. Normalize phone numbers.
-3. Deduplicate skills.
-4. Infer missing fields when possible.
-5. Rating should be 0.0-1.0 based on the score (Score/100). 1.0 is 5 stars, 0.2 is 1 star.
-6. Return ONLY JSON, nothing else.
+- Correct OCR errors.
+- Format phone to E.164.
+- Return ONLY JSON. No talk.
